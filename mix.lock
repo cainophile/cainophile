@@ -1,0 +1,3 @@
+%{
+  "epgsql": {:hex, :epgsql, "4.2.1", "5b8a6c4ea3ae981e946798be388d29434b0ac857e8b4b1e4ccb9ed726345d54b", [:rebar3], [], "hexpm"},
+}
