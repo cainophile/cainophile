@@ -40,9 +40,20 @@ defmodule Cainophile.Adapters.Postgres do
     {:reply, {:ok, subscribers}, %{state | subscribers: subscribers}}
   end
 
+  @impl true
+  def handle_call({:subscribe, receiver_fun}, _from, state) when is_function(receiver_fun) do
+    subscribers = [receiver_fun | state.subscribers]
+
+    {:reply, {:ok, subscribers}, %{state | subscribers: subscribers}}
+  end
+
   # Client
 
   def subscribe(pid, receiver_pid) when is_pid(receiver_pid) do
     GenServer.call(pid, {:subscribe, receiver_pid})
+  end
+
+  def subscribe(pid, receiver_fun) when is_function(receiver_fun) do
+    GenServer.call(pid, {:subscribe, receiver_fun})
   end
 end

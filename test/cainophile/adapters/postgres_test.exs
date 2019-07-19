@@ -30,4 +30,28 @@ defmodule Cainophile.Adapters.PostgresTest do
     assert {:ok, subscribers} = Postgres.subscribe(processor, self())
     assert self() in subscribers
   end
+
+  test "allows subscribing to changes by function", %{processor: processor} do
+    test_fun = fn _changes ->
+      "Hello world"
+    end
+
+    assert {:ok, subscribers} = Postgres.subscribe(processor, test_fun)
+    assert test_fun in subscribers
+  end
+
+  # test "allows subscribing to changes by pid", %{processor: processor} do
+  #   send(
+  #     processor,
+  #     {:epgsql, self(),
+  #      {:x_log_data, 0, 0,
+  #       <<66, 0, 0, 0, 2, 167, 244, 168, 128, 0, 2, 48, 246, 88, 88, 213, 242, 0, 0, 2, 107>>}}
+  #   )
+
+  #   assert_receive(%PgoutputDecoder.Messages.Begin{
+  #     commit_timestamp: _,
+  #     final_lsn: {2, 2_817_828_992},
+  #     xid: 619
+  #   })
+  # end
 end
