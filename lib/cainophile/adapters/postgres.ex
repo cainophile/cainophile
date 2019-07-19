@@ -14,20 +14,18 @@ defmodule Cainophile.Adapters.Postgres do
   use GenServer
   require Logger
 
-  alias Cainophile.Changes.{Transaction, NewRecord}
+  alias Cainophile.Changes.{Transaction, NewRecord, UpdatedRecord}
 
   alias PgoutputDecoder.Messages.{
     Begin,
     Commit,
     Origin,
     Relation,
-    Relation.Column,
     Insert,
     Update,
     Delete,
     Truncate,
-    Type,
-    Unsupported
+    Type
   }
 
   def start_link(config) do
@@ -45,6 +43,7 @@ defmodule Cainophile.Adapters.Postgres do
   @impl true
   def handle_info({:epgsql, _pid, {:x_log_data, _start_lsn, _end_lsn, binary_msg}}, state) do
     decoded = PgoutputDecoder.decode_message(binary_msg)
+    Logger.debug("Received binary message: #{inspect(binary_msg, limit: :infinity)}")
     Logger.debug("Decoded message: " <> inspect(decoded, limit: :infinity))
 
     {:noreply, process_message(decoded, state)}
@@ -81,7 +80,7 @@ defmodule Cainophile.Adapters.Postgres do
   end
 
   defp process_message(
-         %Commit{lsn: commit_lsn} = msg,
+         %Commit{lsn: commit_lsn},
          %State{transaction: {current_txn_lsn, txn}} = state
        )
        when commit_lsn == current_txn_lsn do
@@ -101,17 +100,32 @@ defmodule Cainophile.Adapters.Postgres do
     relation = Map.get(state.relations, msg.relation_id)
 
     # TODO: Typecast to meaningful Elixir types here later
-    data =
-      for {column, index} <- Enum.with_index(relation.columns, 1),
-          do: {column.name, :erlang.element(index, msg.tuple_data)},
-          into: %{}
+    data = data_tuple_to_map(relation.columns, msg.tuple_data)
 
     new_record = %NewRecord{record: data}
     {lsn, txn} = state.transaction
     %{state | transaction: {lsn, %{txn | changes: Enum.reverse([new_record | txn.changes])}}}
   end
 
+  defp process_message(%Update{} = msg, state) do
+    relation = Map.get(state.relations, msg.relation_id)
+
+    # TODO: Typecast to meaningful Elixir types here later
+    old_data = data_tuple_to_map(relation.columns, msg.old_tuple_data)
+    data = data_tuple_to_map(relation.columns, msg.tuple_data)
+
+    new_record = %UpdatedRecord{old_record: old_data, record: data}
+    {lsn, txn} = state.transaction
+    %{state | transaction: {lsn, %{txn | changes: Enum.reverse([new_record | txn.changes])}}}
+  end
+
   defp process_message(_, state), do: state
+
+  defp data_tuple_to_map(columns, tuple_data) do
+    for {column, index} <- Enum.with_index(columns, 1),
+        do: {column.name, :erlang.element(index, tuple_data)},
+        into: %{}
+  end
 
   defp notify_subscribers(%Transaction{} = txn, subscribers) do
     Logger.debug(
