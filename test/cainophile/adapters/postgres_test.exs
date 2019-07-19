@@ -2,7 +2,7 @@ defmodule Cainophile.Adapters.PostgresTest do
   use ExUnit.Case
   import Mox
   alias Cainophile.Adapters.{Postgres, Postgres.State}
-  alias Cainophile.Changes.{Transaction, NewRecord, UpdatedRecord}
+  alias Cainophile.Changes.{Transaction, NewRecord, UpdatedRecord, DeletedRecord}
 
   # TODO: Ideally abstract this out so we can mock out pgdecoder with higher level constructs
   @insert_txn_bins [
@@ -41,6 +41,24 @@ defmodule Cainophile.Adapters.PostgresTest do
       54, 116, 0, 0, 0, 3, 53, 56, 51, 116, 0, 0, 0, 8, 40, 97, 98, 99, 100, 101, 102, 41, 78, 0,
       3, 116, 0, 0, 0, 7, 99, 104, 97, 110, 103, 101, 100, 116, 0, 0, 0, 3, 53, 56, 51, 116, 0, 0,
       0, 8, 40, 97, 98, 99, 100, 101, 102, 41>>,
+    # Commit
+    <<67, 0, 0, 0, 0, 2, 167, 249, 128, 144, 0, 0, 0, 2, 167, 249, 128, 192, 0, 2, 49, 15, 72,
+      201, 23, 156>>
+  ]
+
+  @delete_txn_bins [
+    # Begin
+    <<66, 0, 0, 0, 2, 167, 249, 128, 144, 0, 2, 49, 15, 72, 201, 23, 156, 0, 0, 2, 173>>,
+    # Type
+    <<89, 0, 0, 128, 52, 112, 117, 98, 108, 105, 99, 0, 101, 120, 97, 109, 112, 108, 101, 95, 116,
+      121, 112, 101, 0>>,
+    # Relation
+    <<82, 0, 0, 96, 0, 112, 117, 98, 108, 105, 99, 0, 102, 111, 111, 0, 102, 0, 3, 1, 98, 97, 114,
+      0, 0, 0, 0, 25, 255, 255, 255, 255, 1, 105, 100, 0, 0, 0, 0, 23, 255, 255, 255, 255, 1, 99,
+      117, 115, 116, 111, 109, 95, 116, 121, 112, 101, 0, 0, 0, 128, 52, 255, 255, 255, 255>>,
+    # Delete
+    <<68, 0, 0, 96, 0, 79, 0, 3, 116, 0, 0, 0, 7, 99, 104, 97, 110, 103, 101, 100, 116, 0, 0, 0,
+      3, 53, 56, 51, 116, 0, 0, 0, 8, 40, 97, 98, 99, 100, 101, 102, 41>>,
     # Commit
     <<67, 0, 0, 0, 0, 2, 167, 249, 128, 144, 0, 0, 0, 2, 167, 249, 128, 192, 0, 2, 49, 15, 72,
       201, 23, 156>>
@@ -146,6 +164,29 @@ defmodule Cainophile.Adapters.PostgresTest do
       # Use inspect as we don't care about microseconds
       assert inspect(timestamp) == inspect(expected_dt)
     end
+
+    test "publishes delete transaction to pid subscribers", %{processor: processor} do
+      for msg <- generate_delete_transaction(), do: send(processor, msg)
+
+      assert_receive(%Transaction{
+        commit_timestamp: timestamp,
+        changes: [
+          %DeletedRecord{
+            relation: {"public", "foo"},
+            old_record: %{
+              "bar" => "changed",
+              "id" => "583",
+              "custom_type" => "(abcdef)"
+            }
+          }
+        ]
+      })
+
+      {:ok, expected_dt, _} = DateTime.from_iso8601("2019-07-19T22:47:48Z")
+
+      # Use inspect as we don't care about microseconds
+      assert inspect(timestamp) == inspect(expected_dt)
+    end
   end
 
   defp generate_insert_transaction() do
@@ -154,6 +195,10 @@ defmodule Cainophile.Adapters.PostgresTest do
 
   defp generate_insert_and_update_transaction() do
     for bin <- @insert_and_update_txn_bins, do: generate_epgsql_message(bin)
+  end
+
+  defp generate_delete_transaction() do
+    for bin <- @delete_txn_bins, do: generate_epgsql_message(bin)
   end
 
   defp generate_epgsql_message(binary) do

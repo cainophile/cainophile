@@ -14,7 +14,7 @@ defmodule Cainophile.Adapters.Postgres do
   use GenServer
   require Logger
 
-  alias Cainophile.Changes.{Transaction, NewRecord, UpdatedRecord}
+  alias Cainophile.Changes.{Transaction, NewRecord, UpdatedRecord, DeletedRecord}
 
   alias PgoutputDecoder.Messages.{
     Begin,
@@ -99,10 +99,10 @@ defmodule Cainophile.Adapters.Postgres do
   defp process_message(%Insert{} = msg, state) do
     relation = Map.get(state.relations, msg.relation_id)
 
-    # TODO: Typecast to meaningful Elixir types here later
     data = data_tuple_to_map(relation.columns, msg.tuple_data)
 
     new_record = %NewRecord{relation: {relation.namespace, relation.name}, record: data}
+
     {lsn, txn} = state.transaction
     %{state | transaction: {lsn, %{txn | changes: Enum.reverse([new_record | txn.changes])}}}
   end
@@ -110,7 +110,6 @@ defmodule Cainophile.Adapters.Postgres do
   defp process_message(%Update{} = msg, state) do
     relation = Map.get(state.relations, msg.relation_id)
 
-    # TODO: Typecast to meaningful Elixir types here later
     old_data = data_tuple_to_map(relation.columns, msg.old_tuple_data)
     data = data_tuple_to_map(relation.columns, msg.tuple_data)
 
@@ -124,8 +123,24 @@ defmodule Cainophile.Adapters.Postgres do
     %{state | transaction: {lsn, %{txn | changes: Enum.reverse([new_record | txn.changes])}}}
   end
 
+  defp process_message(%Delete{} = msg, state) do
+    relation = Map.get(state.relations, msg.relation_id)
+
+    data =
+      data_tuple_to_map(
+        relation.columns,
+        msg.old_tuple_data || msg.changed_key_tuple_data
+      )
+
+    new_record = %DeletedRecord{relation: {relation.namespace, relation.name}, old_record: data}
+
+    {lsn, txn} = state.transaction
+    %{state | transaction: {lsn, %{txn | changes: Enum.reverse([new_record | txn.changes])}}}
+  end
+
   defp process_message(_, state), do: state
 
+  # TODO: Typecast to meaningful Elixir types here later
   defp data_tuple_to_map(columns, tuple_data) do
     for {column, index} <- Enum.with_index(columns, 1),
         do: {column.name, :erlang.element(index, tuple_data)},
