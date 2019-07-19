@@ -95,6 +95,7 @@ defmodule Cainophile.Adapters.PostgresTest do
         commit_timestamp: timestamp,
         changes: [
           %NewRecord{
+            relation: {"public", "foo"},
             record: %{
               "bar" => "bazbar123458",
               "id" => "568",
@@ -117,6 +118,7 @@ defmodule Cainophile.Adapters.PostgresTest do
         commit_timestamp: timestamp,
         changes: [
           %NewRecord{
+            relation: {"public", "foo"},
             record: %{
               "bar" => "bazbar123466",
               "id" => "583",
@@ -124,6 +126,7 @@ defmodule Cainophile.Adapters.PostgresTest do
             }
           },
           %UpdatedRecord{
+            relation: {"public", "foo"},
             old_record: %{
               "bar" => "bazbar123466",
               "id" => "583",

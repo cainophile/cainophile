@@ -102,7 +102,7 @@ defmodule Cainophile.Adapters.Postgres do
     # TODO: Typecast to meaningful Elixir types here later
     data = data_tuple_to_map(relation.columns, msg.tuple_data)
 
-    new_record = %NewRecord{record: data}
+    new_record = %NewRecord{relation: {relation.namespace, relation.name}, record: data}
     {lsn, txn} = state.transaction
     %{state | transaction: {lsn, %{txn | changes: Enum.reverse([new_record | txn.changes])}}}
   end
@@ -114,7 +114,12 @@ defmodule Cainophile.Adapters.Postgres do
     old_data = data_tuple_to_map(relation.columns, msg.old_tuple_data)
     data = data_tuple_to_map(relation.columns, msg.tuple_data)
 
-    new_record = %UpdatedRecord{old_record: old_data, record: data}
+    new_record = %UpdatedRecord{
+      relation: {relation.namespace, relation.name},
+      old_record: old_data,
+      record: data
+    }
+
     {lsn, txn} = state.transaction
     %{state | transaction: {lsn, %{txn | changes: Enum.reverse([new_record | txn.changes])}}}
   end
