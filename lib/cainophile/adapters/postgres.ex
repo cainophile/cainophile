@@ -14,7 +14,13 @@ defmodule Cainophile.Adapters.Postgres do
   use GenServer
   require Logger
 
-  alias Cainophile.Changes.{Transaction, NewRecord, UpdatedRecord, DeletedRecord}
+  alias Cainophile.Changes.{
+    Transaction,
+    NewRecord,
+    UpdatedRecord,
+    DeletedRecord,
+    TruncatedRelation
+  }
 
   alias PgoutputDecoder.Messages.{
     Begin,
@@ -113,14 +119,14 @@ defmodule Cainophile.Adapters.Postgres do
     old_data = data_tuple_to_map(relation.columns, msg.old_tuple_data)
     data = data_tuple_to_map(relation.columns, msg.tuple_data)
 
-    new_record = %UpdatedRecord{
+    updated_record = %UpdatedRecord{
       relation: {relation.namespace, relation.name},
       old_record: old_data,
       record: data
     }
 
     {lsn, txn} = state.transaction
-    %{state | transaction: {lsn, %{txn | changes: Enum.reverse([new_record | txn.changes])}}}
+    %{state | transaction: {lsn, %{txn | changes: Enum.reverse([updated_record | txn.changes])}}}
   end
 
   defp process_message(%Delete{} = msg, state) do
@@ -132,10 +138,31 @@ defmodule Cainophile.Adapters.Postgres do
         msg.old_tuple_data || msg.changed_key_tuple_data
       )
 
-    new_record = %DeletedRecord{relation: {relation.namespace, relation.name}, old_record: data}
+    deleted_record = %DeletedRecord{
+      relation: {relation.namespace, relation.name},
+      old_record: data
+    }
 
     {lsn, txn} = state.transaction
-    %{state | transaction: {lsn, %{txn | changes: Enum.reverse([new_record | txn.changes])}}}
+    %{state | transaction: {lsn, %{txn | changes: Enum.reverse([deleted_record | txn.changes])}}}
+  end
+
+  defp process_message(%Truncate{} = msg, state) do
+    truncated_relations =
+      for truncated_relation <- msg.truncated_relations do
+        relation = Map.get(state.relations, truncated_relation)
+
+        %TruncatedRelation{
+          relation: {relation.namespace, relation.name}
+        }
+      end
+
+    {lsn, txn} = state.transaction
+
+    %{
+      state
+      | transaction: {lsn, %{txn | changes: Enum.reverse(truncated_relations ++ txn.changes)}}
+    }
   end
 
   defp process_message(_, state), do: state
