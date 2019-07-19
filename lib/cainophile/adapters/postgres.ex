@@ -1,6 +1,7 @@
 defmodule Cainophile.Adapters.Postgres do
-  defmodule(State, do: defstruct([:config, :epgsql]))
+  defmodule(State, do: defstruct([:config, :connection, :subscribers]))
   use GenServer
+  require Logger
 
   def start_link(config) do
     GenServer.start_link(__MODULE__, config)
@@ -8,37 +9,20 @@ defmodule Cainophile.Adapters.Postgres do
 
   @impl true
   def init(config) do
-    epgsql_config =
-      Keyword.get(config, :epgsql, %{})
-      |> Map.put(:replication, "database")
+    adapter_impl =
+      Keyword.get(config, :postgres_adapter, Cainophile.Adapters.Postgres.EpgsqlImplementation)
 
-    {xlog, offset} = Keyword.get(config, :wal_position, {"0", "0"})
+    adapter_impl.init(config)
+  end
 
-    publication_names =
-      Keyword.get(config, :publications)
-      |> Enum.map(fn pub -> ~s("#{pub}") end)
-      |> Enum.join(",")
+  @impl true
+  def handle_info({:epgsql, _pid, {:x_log_data, _, _, binary_msg}}, state) do
+    Logger.debug("Received message: " <> inspect(binary_msg, limit: :infinity))
 
-    case :epgsql.connect(epgsql_config) do
-      {:ok, epgsql_pid} ->
-        {:ok, slot_name} =
-          create_replication_slot(epgsql_pid, Keyword.get(config, :slot, :temporary))
+    decoded = PgoutputDecoder.decode_message(binary_msg)
+    Logger.debug("Decoded message: " <> inspect(decoded, limit: :infinity))
 
-        :ok =
-          :epgsql.start_replication(
-            epgsql_pid,
-            slot_name,
-            self(),
-            [],
-            '#{xlog}/#{offset}',
-            'proto_version \'1\', publication_names \'#{publication_names}\''
-          )
-
-        {:ok, %State{config: config, epgsql: epgsql_pid}}
-
-      {:error, reason} ->
-        {:stop, reason}
-    end
+    {:noreply, state}
   end
 
   @impl true
@@ -47,37 +31,18 @@ defmodule Cainophile.Adapters.Postgres do
     {:noreply, state}
   end
 
-  defp create_replication_slot(epgsql_pid, slot) do
-    {slot_name, start_replication_command} =
-      case slot do
-        name when is_binary(name) ->
-          # TODO
-          {name, "SELECT 1;"}
+  # TODO: Extract subscription logic into common module for other adapters
 
-        :temporary ->
-          slot_name = self_as_slot_name()
+  @impl true
+  def handle_call({:subscribe, receiver_pid}, _from, state) when is_pid(receiver_pid) do
+    subscribers = [receiver_pid | state.subscribers]
 
-          {slot_name,
-           "CREATE_REPLICATION_SLOT #{slot_name} TEMPORARY LOGICAL pgoutput NOEXPORT_SNAPSHOT"}
-      end
-
-    case :epgsql.squery(epgsql_pid, start_replication_command) do
-      {:ok, _, _} ->
-        {:ok, slot_name}
-
-      {:error, epgsql_error} ->
-        {:error, epgsql_error}
-    end
+    {:reply, {:ok, subscribers}, %{state | subscribers: subscribers}}
   end
 
-  # TODO: Replace with better slot name generator
-  defp self_as_slot_name() do
-    "#PID<" <> pid = inspect(self())
+  # Client
 
-    pid_number =
-      String.replace(pid, ".", "_")
-      |> String.slice(0..-2)
-
-    "pid" <> pid_number
+  def subscribe(pid, receiver_pid) when is_pid(receiver_pid) do
+    GenServer.call(pid, {:subscribe, receiver_pid})
   end
 end

@@ -1,3 +1,5 @@
 %{
   "epgsql": {:hex, :epgsql, "4.2.1", "5b8a6c4ea3ae981e946798be388d29434b0ac857e8b4b1e4ccb9ed726345d54b", [:rebar3], [], "hexpm"},
+  "mox": {:hex, :mox, "0.5.1", "f86bb36026aac1e6f924a4b6d024b05e9adbed5c63e8daa069bd66fb3292165b", [:mix], [], "hexpm"},
+  "pgoutput_decoder": {:hex, :pgoutput_decoder, "0.1.0", "d4ffae6e58a563f2e6de8a0495d9f9afbe2f4ac75d6805419cd4a0d05f414c00", [:mix], [], "hexpm"},
 }
