@@ -2,6 +2,26 @@ defmodule Cainophile.Adapters.PostgresTest do
   use ExUnit.Case
   import Mox
   alias Cainophile.Adapters.{Postgres, Postgres.State}
+  alias Cainophile.Changes.{Transaction, NewRecord}
+
+  # TODO: Ideally abstract this out so we can mock out pgdecoder with higher level constructs
+  @insert_txn_bins [
+    # Begin
+    <<66, 0, 0, 0, 2, 167, 249, 2, 56, 0, 2, 49, 12, 168, 58, 245, 78, 0, 0, 2, 157>>,
+    # Type
+    <<89, 0, 0, 128, 52, 112, 117, 98, 108, 105, 99, 0, 101, 120, 97, 109, 112, 108, 101, 95, 116,
+      121, 112, 101, 0>>,
+    # Relation
+    <<82, 0, 0, 96, 0, 112, 117, 98, 108, 105, 99, 0, 102, 111, 111, 0, 102, 0, 3, 1, 98, 97, 114,
+      0, 0, 0, 0, 25, 255, 255, 255, 255, 1, 105, 100, 0, 0, 0, 0, 23, 255, 255, 255, 255, 1, 99,
+      117, 115, 116, 111, 109, 95, 116, 121, 112, 101, 0, 0, 0, 128, 52, 255, 255, 255, 255>>,
+    # Insert
+    <<73, 0, 0, 96, 0, 78, 0, 3, 116, 0, 0, 0, 12, 98, 97, 122, 98, 97, 114, 49, 50, 51, 52, 53,
+      56, 116, 0, 0, 0, 3, 53, 54, 56, 116, 0, 0, 0, 8, 40, 97, 98, 99, 100, 101, 102, 41>>,
+    # Commit
+    <<67, 0, 0, 0, 0, 2, 167, 249, 2, 56, 0, 0, 0, 2, 167, 249, 2, 104, 0, 2, 49, 12, 168, 58,
+      245, 78>>
+  ]
 
   doctest Cainophile.Adapters.Postgres
 
@@ -14,10 +34,8 @@ defmodule Cainophile.Adapters.PostgresTest do
   setup :set_mox_global
 
   setup do
-    test_runner_pid = self()
-
     expect(PostgresMock, :init, fn config ->
-      {:ok, %State{connection: self(), config: config, subscribers: [test_runner_pid]}}
+      {:ok, %State{connection: self(), config: config, subscribers: []}}
     end)
 
     {:ok, pid} = Postgres.start_link(postgres_adapter: PostgresMock)
@@ -40,18 +58,40 @@ defmodule Cainophile.Adapters.PostgresTest do
     assert test_fun in subscribers
   end
 
-  # test "allows subscribing to changes by pid", %{processor: processor} do
-  #   send(
-  #     processor,
-  #     {:epgsql, self(),
-  #      {:x_log_data, 0, 0,
-  #       <<66, 0, 0, 0, 2, 167, 244, 168, 128, 0, 2, 48, 246, 88, 88, 213, 242, 0, 0, 2, 107>>}}
-  #   )
+  describe "Change handling" do
+    setup %{processor: processor} do
+      {:ok, subscribers} = Postgres.subscribe(processor, self())
 
-  #   assert_receive(%PgoutputDecoder.Messages.Begin{
-  #     commit_timestamp: _,
-  #     final_lsn: {2, 2_817_828_992},
-  #     xid: 619
-  #   })
-  # end
+      for msg <- generate_insert_transaction(), do: send(processor, msg)
+      :ok
+    end
+
+    test "publishes transactions to pid subscribers", %{processor: processor} do
+      assert_receive(%Transaction{
+        commit_timestamp: timestamp,
+        changes: [
+          %NewRecord{
+            record: %{
+              "bar" => "bazbar123458",
+              "id" => "568",
+              "custom_type" => "(abcdef)"
+            }
+          }
+        ]
+      })
+
+      {:ok, expected_dt, _} = DateTime.from_iso8601("2019-07-19T19:39:45Z")
+
+      # Use inspect as we don't care about microseconds
+      assert inspect(timestamp) == inspect(expected_dt)
+    end
+  end
+
+  defp generate_insert_transaction() do
+    for bin <- @insert_txn_bins, do: generate_epgsql_message(bin)
+  end
+
+  defp generate_epgsql_message(binary) do
+    {:epgsql, self(), {:x_log_data, 0, 0, binary}}
+  end
 end
