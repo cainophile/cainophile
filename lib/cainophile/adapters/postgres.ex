@@ -25,7 +25,6 @@ defmodule Cainophile.Adapters.Postgres do
   alias PgoutputDecoder.Messages.{
     Begin,
     Commit,
-    Origin,
     Relation,
     Insert,
     Update,
