@@ -173,6 +173,8 @@ defmodule Cainophile.Adapters.Postgres do
   defp process_message(_, state), do: state
 
   # TODO: Typecast to meaningful Elixir types here later
+  defp data_tuple_to_map(_columns, nil), do: %{}
+
   defp data_tuple_to_map(columns, tuple_data) do
     for {column, index} <- Enum.with_index(columns, 1),
         do: {column.name, :erlang.element(index, tuple_data)},
