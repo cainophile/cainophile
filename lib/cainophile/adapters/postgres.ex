@@ -45,10 +45,7 @@ defmodule Cainophile.Adapters.Postgres do
 
   @impl true
   def init(config) do
-    adapter_impl =
-      Keyword.get(config, :postgres_adapter, Cainophile.Adapters.Postgres.EpgsqlImplementation)
-
-    adapter_impl.init(config)
+    adapter_impl(config).init(config)
   end
 
   @impl true
@@ -91,11 +88,12 @@ defmodule Cainophile.Adapters.Postgres do
   end
 
   defp process_message(
-         %Commit{lsn: commit_lsn},
+         %Commit{lsn: commit_lsn, end_lsn: end_lsn},
          %State{transaction: {current_txn_lsn, txn}} = state
        )
        when commit_lsn == current_txn_lsn do
     notify_subscribers(txn, state.subscribers)
+    :ok = adapter_impl(state.config).acknowledge_lsn(state.connection, end_lsn)
 
     %{state | transaction: nil}
   end
@@ -170,8 +168,6 @@ defmodule Cainophile.Adapters.Postgres do
     }
   end
 
-  defp process_message(_, state), do: state
-
   # TODO: Typecast to meaningful Elixir types here later
   defp data_tuple_to_map(_columns, nil), do: %{}
 
@@ -188,6 +184,10 @@ defmodule Cainophile.Adapters.Postgres do
 
     for(sub <- subscribers, is_pid(sub), do: send(sub, txn)) ++
       for sub <- subscribers, is_function(sub), do: sub.(txn)
+  end
+
+  defp adapter_impl(config) do
+    Keyword.get(config, :postgres_adapter, Cainophile.Adapters.Postgres.EpgsqlImplementation)
   end
 
   # Client

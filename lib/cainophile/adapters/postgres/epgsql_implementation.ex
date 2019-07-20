@@ -38,12 +38,39 @@ defmodule Cainophile.Adapters.Postgres.EpgsqlImplementation do
     end
   end
 
+  @impl true
+  def acknowledge_lsn(epgsql, {xlog, offset} = lsn_tup) do
+    decimal_lsn = lsn_tuple_to_decimal(lsn_tup)
+
+    :epgsql.standby_status_update(epgsql, decimal_lsn, decimal_lsn)
+  end
+
+  defp lsn_tuple_to_decimal({xlog, offset}) do
+    <<decimal_lsn::integer-64>> = <<xlog::integer-32, offset::integer-32>>
+    decimal_lsn
+  end
+
   defp create_replication_slot(epgsql_pid, slot) do
     {slot_name, start_replication_command} =
       case slot do
         name when is_binary(name) ->
-          # TODO
-          {name, "SELECT 1;"}
+          # Simple query for replication mode so no prepared statements are supported
+          escaped_name = String.replace(name, "'", "\\'")
+
+          {:ok, _, [{existing_slot}]} =
+            :epgsql.squery(
+              epgsql_pid,
+              "SELECT COUNT(*) >= 1 FROM pg_replication_slots WHERE slot_name = '#{escaped_name}'"
+            )
+
+          case existing_slot do
+            "t" ->
+              # no-op
+              {name, "SELECT 1"}
+
+            "f" ->
+              {name, "CREATE_REPLICATION_SLOT #{escaped_name} LOGICAL pgoutput NOEXPORT_SNAPSHOT"}
+          end
 
         :temporary ->
           slot_name = self_as_slot_name()

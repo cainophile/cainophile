@@ -95,18 +95,16 @@ defmodule Cainophile.Adapters.PostgresTest do
     :ok
   end
 
-  # Make sure mocks are verified when the test exits
   setup :set_mox_global
+  setup :create_mocks
 
   setup do
-    expect(PostgresMock, :init, fn config ->
-      {:ok, %State{connection: self(), config: config, subscribers: []}}
-    end)
-
     {:ok, pid} = Postgres.start_link(postgres_adapter: PostgresMock)
+
     %{processor: pid}
   end
 
+  # Make sure mocks are verified when the test exits
   setup :verify_on_exit!
 
   test "allows subscribing to changes by pid", %{processor: processor} do
@@ -229,6 +227,22 @@ defmodule Cainophile.Adapters.PostgresTest do
       # Use inspect as we don't care about microseconds
       assert inspect(timestamp) == inspect(expected_dt)
     end
+
+    test "acknowledges changes on commit", %{processor: processor} do
+      test_runner_pid = self()
+
+      expect(PostgresMock, :acknowledge_lsn, fn connection, lsn_tup ->
+        assert connection == test_runner_pid
+        assert lsn_tup == {2, 2_818_146_496}
+
+        send(test_runner_pid, {:acknowledged, connection, lsn_tup})
+        :ok
+      end)
+
+      for msg <- generate_truncate_transaction(), do: send(processor, msg)
+
+      assert_receive({:acknowledged, ^test_runner_pid, {2, 2_818_146_496}})
+    end
   end
 
   defp generate_insert_transaction() do
@@ -249,5 +263,19 @@ defmodule Cainophile.Adapters.PostgresTest do
 
   defp generate_epgsql_message(binary) do
     {:epgsql, self(), {:x_log_data, 0, 0, binary}}
+  end
+
+  defp create_mocks(ctx) do
+    test_runner_pid = self()
+
+    expect(PostgresMock, :init, fn config ->
+      {:ok, %State{connection: test_runner_pid, config: config, subscribers: []}}
+    end)
+
+    stub(PostgresMock, :acknowledge_lsn, fn _connection, _lsn_tup ->
+      :ok
+    end)
+
+    ctx
   end
 end
