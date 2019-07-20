@@ -34,7 +34,13 @@ defmodule Cainophile.Adapters.Postgres do
   }
 
   def start_link(config) do
-    GenServer.start_link(__MODULE__, config)
+    register = Keyword.get(config, :register)
+
+    if is_atom(register) do
+      GenServer.start_link(__MODULE__, config, name: register)
+    else
+      GenServer.start_link(__MODULE__, config)
+    end
   end
 
   @impl true
