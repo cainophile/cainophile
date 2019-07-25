@@ -39,7 +39,7 @@ defmodule Cainophile.Adapters.Postgres.EpgsqlImplementation do
   end
 
   @impl true
-  def acknowledge_lsn(epgsql, {xlog, offset} = lsn_tup) do
+  def acknowledge_lsn(epgsql, {_xlog, _offset} = lsn_tup) do
     decimal_lsn = lsn_tuple_to_decimal(lsn_tup)
 
     :epgsql.standby_status_update(epgsql, decimal_lsn, decimal_lsn)
