@@ -96,12 +96,12 @@ defmodule Cainophile.Adapters.PostgresTest do
   end
 
   setup :set_mox_global
-  setup :create_mocks
 
   # Make sure mocks are verified when the test exits
   setup :verify_on_exit!
 
   describe "adding subscriptions (when started without subscribers)" do
+    setup :create_mocks
     setup :start_processor_without_subscribers
 
     test "allows subscribing to changes by pid", %{processor: processor} do
@@ -120,6 +120,8 @@ defmodule Cainophile.Adapters.PostgresTest do
   end
 
   describe "adding subscriptions (when started with predefined subscribers)" do
+    setup :create_mocks
+
     test "allows passing subscriber pid in start_link opts" do
       {:ok, processor} =
         Postgres.start_link(postgres_adapter: PostgresMock, subscribers: [self()])
@@ -147,7 +149,16 @@ defmodule Cainophile.Adapters.PostgresTest do
     end
   end
 
+  describe "subscribers option in start_links" do
+    test "validates values (only pids and functions allowed) " do
+      {:error, _} = Postgres.start_link(postgres_adapter: PostgresMock, subscribers: [nil])
+      {:error, _} = Postgres.start_link(postgres_adapter: PostgresMock, subscribers: ["foo"])
+      {:error, _} = Postgres.start_link(postgres_adapter: PostgresMock, subscribers: [3.14])
+    end
+  end
+
   describe "Change handling" do
+    setup :create_mocks
     setup :start_processor_without_subscribers
 
     setup %{processor: processor} do

@@ -45,9 +45,8 @@ defmodule Cainophile.Adapters.Postgres do
 
   @impl true
   def init(config) do
-    initial_subscribers = Keyword.get(config, :subscribers, [])
-
-    with {:ok, state} <- adapter_impl(config).init(config) do
+    with {:ok, initial_subscribers} <- fetch_subscribers_config(config),
+         {:ok, state} <- adapter_impl(config).init(config) do
       {:ok, append_subscribers(state, initial_subscribers)}
     end
   end
@@ -196,6 +195,17 @@ defmodule Cainophile.Adapters.Postgres do
 
   defp append_subscribers(state, extra_subs) do
     %{state | subscribers: state.subscribers ++ extra_subs}
+  end
+
+  defp fetch_subscribers_config(config) do
+    subscribers = Keyword.get(config, :subscribers, [])
+
+    if Enum.all?(subscribers, &(is_function(&1, 1) || is_pid(&1))) do
+      {:ok, subscribers}
+    else
+      {:error,
+       ":subscribers option in start_link is invalid. Only pids and functions with arity 1 supported."}
+    end
   end
 
   # Client
