@@ -45,7 +45,11 @@ defmodule Cainophile.Adapters.Postgres do
 
   @impl true
   def init(config) do
-    adapter_impl(config).init(config)
+    initial_subscribers = Keyword.get(config, :subscribers, [])
+
+    with {:ok, state} <- adapter_impl(config).init(config) do
+      {:ok, append_subscribers(state, initial_subscribers)}
+    end
   end
 
   @impl true
@@ -188,6 +192,10 @@ defmodule Cainophile.Adapters.Postgres do
 
   defp adapter_impl(config) do
     Keyword.get(config, :postgres_adapter, Cainophile.Adapters.Postgres.EpgsqlImplementation)
+  end
+
+  defp append_subscribers(state, extra_subs) do
+    %{state | subscribers: state.subscribers ++ extra_subs}
   end
 
   # Client

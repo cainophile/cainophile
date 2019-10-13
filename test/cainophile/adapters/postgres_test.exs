@@ -98,30 +98,58 @@ defmodule Cainophile.Adapters.PostgresTest do
   setup :set_mox_global
   setup :create_mocks
 
-  setup do
-    {:ok, pid} = Postgres.start_link(postgres_adapter: PostgresMock)
-
-    %{processor: pid}
-  end
-
   # Make sure mocks are verified when the test exits
   setup :verify_on_exit!
 
-  test "allows subscribing to changes by pid", %{processor: processor} do
-    assert {:ok, subscribers} = Postgres.subscribe(processor, self())
-    assert self() in subscribers
-  end
+  describe "adding subscriptions (when started without subscribers)" do
+    setup :start_processor_without_subscribers
 
-  test "allows subscribing to changes by function", %{processor: processor} do
-    test_fun = fn _changes ->
-      "Hello world"
+    test "allows subscribing to changes by pid", %{processor: processor} do
+      assert {:ok, subscribers} = Postgres.subscribe(processor, self())
+      assert self() in subscribers
     end
 
-    assert {:ok, subscribers} = Postgres.subscribe(processor, test_fun)
-    assert test_fun in subscribers
+    test "allows subscribing to changes by function", %{processor: processor} do
+      test_fun = fn _changes ->
+        "Hello world"
+      end
+
+      assert {:ok, subscribers} = Postgres.subscribe(processor, test_fun)
+      assert test_fun in subscribers
+    end
+  end
+
+  describe "adding subscriptions (when started with predefined subscribers)" do
+    test "allows passing subscriber pid in start_link opts" do
+      {:ok, processor} =
+        Postgres.start_link(postgres_adapter: PostgresMock, subscribers: [self()])
+
+      test_fun = fn _changes ->
+        "Hello world"
+      end
+
+      assert {:ok, subscribers} = Postgres.subscribe(processor, test_fun)
+      assert self() in subscribers
+      assert test_fun in subscribers
+    end
+
+    test "allows passing subscriber function in start_links opts" do
+      test_fun = fn _changes ->
+        "Hello world"
+      end
+
+      {:ok, processor} =
+        Postgres.start_link(postgres_adapter: PostgresMock, subscribers: [test_fun])
+
+      assert {:ok, subscribers} = Postgres.subscribe(processor, self())
+      assert self() in subscribers
+      assert test_fun in subscribers
+    end
   end
 
   describe "Change handling" do
+    setup :start_processor_without_subscribers
+
     setup %{processor: processor} do
       {:ok, _subscribers} = Postgres.subscribe(processor, self())
 
@@ -277,5 +305,11 @@ defmodule Cainophile.Adapters.PostgresTest do
     end)
 
     ctx
+  end
+
+  def start_processor_without_subscribers(_) do
+    {:ok, pid} = Postgres.start_link(postgres_adapter: PostgresMock)
+
+    %{processor: pid}
   end
 end
