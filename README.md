@@ -92,3 +92,7 @@ Cainophile.Adapters.Postgres.subscribe(Cainophile.ExamplePublisher, self())
 ```
 
 This will asyncronously deliver changes as messages to your process. See Cainophile.Changes for what they'll look like.
+
+## At-least-once delivery guarantee
+
+To provide at-least-once delivery guarantee, the subscription needs to be set up **before** the processor starts receiving the changes. This can be achieved via `:subscribers` option. See [examples](./examples) for more details.
