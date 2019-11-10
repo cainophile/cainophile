@@ -91,7 +91,7 @@ Then, you can subscribe to changes with `Cainophile.Adapters.Postgres.subscribe/
 Cainophile.Adapters.Postgres.subscribe(Cainophile.ExamplePublisher, self())
 ```
 
-This will asyncronously deliver changes as messages to your process. See Cainophile.Changes for what they'll look like.
+This will asynchronously deliver changes as messages to your process. See Cainophile.Changes for what they'll look like.
 
 ## At-least-once delivery guarantee
 
