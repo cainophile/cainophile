@@ -54,8 +54,8 @@ defmodule Cainophile.Adapters.Postgres do
   @impl true
   def handle_info({:epgsql, _pid, {:x_log_data, _start_lsn, _end_lsn, binary_msg}}, state) do
     decoded = PgoutputDecoder.decode_message(binary_msg)
-    Logger.debug(fn -> "Received binary message: #{inspect(binary_msg, limit: :infinity)}" end)
-    Logger.debug(fn -> "Decoded message: " <> inspect(decoded, limit: :infinity) end)
+    Logger.debug("Received binary message: #{inspect(binary_msg, limit: :infinity)}")
+    Logger.debug("Decoded message: " <> inspect(decoded, limit: :infinity))
 
     {:noreply, process_message(decoded, state)}
   end
@@ -181,9 +181,9 @@ defmodule Cainophile.Adapters.Postgres do
   end
 
   defp notify_subscribers(%Transaction{} = txn, subscribers) do
-    Logger.debug(fn ->
+    Logger.debug(
       "Notifying subscribers: #{inspect(subscribers)} about transaction: #{inspect(txn)}"
-    end)
+    )
 
     for(sub <- subscribers, is_pid(sub), do: send(sub, txn)) ++
       for sub <- subscribers, is_function(sub), do: sub.(txn)
