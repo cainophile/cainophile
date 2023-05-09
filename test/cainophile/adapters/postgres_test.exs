@@ -145,7 +145,7 @@ defmodule Cainophile.Adapters.PostgresTest do
         ]
       })
 
-      {:ok, expected_dt, _} = DateTime.from_iso8601("2019-07-19T19:39:45Z")
+      {:ok, expected_dt, _} = DateTime.from_iso8601("2019-07-19T19:39:45.226062Z")
 
       # Use inspect as we don't care about microseconds
       assert inspect(timestamp) == inspect(expected_dt)
@@ -181,7 +181,7 @@ defmodule Cainophile.Adapters.PostgresTest do
         ]
       })
 
-      {:ok, expected_dt, _} = DateTime.from_iso8601("2019-07-19T22:47:48Z")
+      {:ok, expected_dt, _} = DateTime.from_iso8601("2019-07-19T22:47:48.830108Z")
 
       # Use inspect as we don't care about microseconds
       assert inspect(timestamp) == inspect(expected_dt)
@@ -204,7 +204,7 @@ defmodule Cainophile.Adapters.PostgresTest do
         ]
       })
 
-      {:ok, expected_dt, _} = DateTime.from_iso8601("2019-07-19T22:47:48Z")
+      {:ok, expected_dt, _} = DateTime.from_iso8601("2019-07-19T22:47:48.830108Z")
 
       # Use inspect as we don't care about microseconds
       assert inspect(timestamp) == inspect(expected_dt)
@@ -222,7 +222,7 @@ defmodule Cainophile.Adapters.PostgresTest do
         ]
       })
 
-      {:ok, expected_dt, _} = DateTime.from_iso8601("2019-07-19T22:47:48Z")
+      {:ok, expected_dt, _} = DateTime.from_iso8601("2019-07-19T22:47:48.830108Z")
 
       # Use inspect as we don't care about microseconds
       assert inspect(timestamp) == inspect(expected_dt)
