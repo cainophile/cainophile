@@ -31,7 +31,7 @@ defmodule Cainophile.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:epgsql, "~> 4.2"},
+      {:epgsql, "~> 4.7"},
       {:pgoutput_decoder, "~> 0.1.0"},
       {:mox, ">= 0.5.1", only: [:dev, :test]},
       {:ex_doc, ">= 0.0.0", only: :dev}
