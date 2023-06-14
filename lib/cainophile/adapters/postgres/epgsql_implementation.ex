@@ -73,7 +73,7 @@ defmodule Cainophile.Adapters.Postgres.EpgsqlImplementation do
           end
 
         :temporary ->
-          slot_name = self_as_slot_name()
+          slot_name = rand_slot_name()
 
           {slot_name,
            "CREATE_REPLICATION_SLOT #{slot_name} TEMPORARY LOGICAL pgoutput NOEXPORT_SNAPSHOT"}
@@ -89,13 +89,12 @@ defmodule Cainophile.Adapters.Postgres.EpgsqlImplementation do
   end
 
   # TODO: Replace with better slot name generator
-  defp self_as_slot_name() do
-    "#PID<" <> pid = inspect(self())
+  defp rand_slot_name() do
+    rand =
+      Enum.concat(?a..?z, ?0..?9)
+      |> Enum.take_random(8)
+      |> to_string()
 
-    pid_number =
-      String.replace(pid, ".", "_")
-      |> String.slice(0..-2)
-
-    "pid" <> pid_number
+    "cainophile_" <> rand
   end
 end
