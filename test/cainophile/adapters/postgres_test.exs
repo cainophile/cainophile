@@ -138,7 +138,7 @@ defmodule Cainophile.Adapters.PostgresTest do
             relation: {"public", "foo"},
             record: %{
               "bar" => "bazbar123458",
-              "id" => "568",
+              "id" => 568,
               "custom_type" => "(abcdef)"
             }
           }
@@ -161,7 +161,7 @@ defmodule Cainophile.Adapters.PostgresTest do
             relation: {"public", "foo"},
             record: %{
               "bar" => "bazbar123466",
-              "id" => "583",
+              "id" => 583,
               "custom_type" => "(abcdef)"
             }
           },
@@ -169,12 +169,12 @@ defmodule Cainophile.Adapters.PostgresTest do
             relation: {"public", "foo"},
             old_record: %{
               "bar" => "bazbar123466",
-              "id" => "583",
+              "id" => 583,
               "custom_type" => "(abcdef)"
             },
             record: %{
               "bar" => "changed",
-              "id" => "583",
+              "id" => 583,
               "custom_type" => "(abcdef)"
             }
           }
@@ -197,7 +197,7 @@ defmodule Cainophile.Adapters.PostgresTest do
             relation: {"public", "foo"},
             old_record: %{
               "bar" => "changed",
-              "id" => "583",
+              "id" => 583,
               "custom_type" => "(abcdef)"
             }
           }
