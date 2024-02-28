@@ -14,6 +14,8 @@ defmodule Cainophile.Adapters.Postgres do
   use GenServer
   require Logger
 
+  alias Cainophile.Adapters.Postgres.Types
+
   alias Cainophile.Changes.{
     Transaction,
     NewRecord,
@@ -173,7 +175,7 @@ defmodule Cainophile.Adapters.Postgres do
 
   defp data_tuple_to_map(columns, tuple_data) do
     for {column, index} <- Enum.with_index(columns, 1),
-        do: {column.name, :erlang.element(index, tuple_data)},
+        do: Types.cast(column, :erlang.element(index, tuple_data)),
         into: %{}
   end
 
